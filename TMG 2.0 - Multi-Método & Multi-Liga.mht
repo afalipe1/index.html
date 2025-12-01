@@ -1,0 +1,174 @@
+From: <Saved by Blink>
+Snapshot-Content-Location: http://Pr1ZlUeZvHyAPYi:8PY5oQX9cyuhHuF@localhost:47649/data/data/com.qamar.ide.web/files/home/samples/welcome.html
+Subject: =?utf-8?Q?TMG=202.0=20-=20Multi-M=C3=A9todo=20&=20Multi-Liga?=
+Date: Mon, 1 Dec 2025 20:25:59 -0300
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----MultipartBoundary--yjNEMWOcttHdCgbLyitcM6mI3bTmVuzbNT5n1lCUHb----"
+
+
+------MultipartBoundary--yjNEMWOcttHdCgbLyitcM6mI3bTmVuzbNT5n1lCUHb----
+Content-Type: text/html
+Content-ID: <frame-2D6557B7D7D2C98886D8590A8F2D6A58@mhtml.blink>
+Content-Transfer-Encoding: binary
+Content-Location: http://Pr1ZlUeZvHyAPYi:8PY5oQX9cyuhHuF@localhost:47649/data/data/com.qamar.ide.web/files/home/samples/welcome.html
+
+<!DOCTYPE html><html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><link rel="stylesheet" type="text/css" href="cid:css-63c3a48b-dbcf-4005-85e6-5c7a4ac1102d@mhtml.blink" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMG 2.0 - Multi-Método &amp; Multi-Liga</title>
+    
+</head>
+<body>
+
+<div class="container">
+    <h1>TMG 2.0 - Análise Multi-Liga &amp; Multi-Método</h1>
+
+    <div id="log">Aguardando inicialização do Banco de Dados Local (IndexedDB)...</div>
+
+    <section>
+        <h3>1. ⚽ Liga Ativa e Método</h3>
+        <div class="flex-group">
+            <div class="input-box">
+                <label>Liga Ativa:</label>
+                <select id="liga-select"></select>
+                <div style="margin-top: 10px;">
+                    <input type="text" id="nova-liga-nome" placeholder="Nome da Nova Liga">
+                    <button>Adicionar Liga</button>
+                </div>
+            </div>
+            
+            <div class="input-box">
+                <label style="margin-top: 15px; display: block;">Método de Análise:</label>
+                <select id="metodo-select">
+                    <option value="M1">M1: TMG-Chave Otimizado (GTR 3, O2.5 ou BTTS)</option>
+                    <option value="M2">M2: TMG-Chave O2.5 (GTR 2, TMG ≥ 12)</option>
+                    <option value="M3">M3: TMG-Chave HT (HTGTR 3, Over 0.5 HT)</option>
+                </select>
+                <button class="btn-danger" style="margin-top: 10px;">Deletar Liga Ativa</button>
+            </div>
+        </div>
+        <p style="margin-top: 10px; font-weight: bold;">Times na Liga: <span id="time-list-display"></span></p>
+    </section>
+
+    <section>
+        <h3>2. 📊 Análise e Exportação</h3>
+        <div class="flex-group">
+            <div style="flex: 1 1 200px;">
+                <label>Rodada de Análise (R):</label>
+                <input type="number" id="rodada-alvo" placeholder="Rodada Alvo (Ex: 13)" value="13">
+            </div>
+            <button style="flex: 1 1 200px; align-self: flex-end;">CALCULAR CHAVE (R<span id="target-r-display">13</span>)</button>
+        </div>
+        <div class="flex-group" style="border-top: 1px solid #ccc; padding-top: 15px;">
+            <input type="file" id="import-file" accept=".json" style="flex: 1 1 200px; height: 40px;">
+            <button style="flex: 1 1 150px;">Exportar Dados</button>
+        </div>
+    </section>
+
+    <section>
+        <h3>3. 📊 Histórico de Gols (Clique para Editar o Resultado)</h3>
+        <p>As rodadas destacadas são as últimas <span id="gtr-base-display">3</span> rodadas usadas no GTR atual. Clique no card para editar.</p>
+        <div id="historico-inputs" class="flex-group">
+            </div>
+    </section>
+
+    <section>
+        <h3>4. 📈 Resultados do GTR e Aposta Ouro</h3>
+        <p>Cálculo: <span id="gtr-calc-info"></span></p>
+        <table id="gtr-table"></table>
+    </section>
+
+    <section>
+        <h3>5. 🎯 Análise de Confrontos TMG (R<span id="analysis-r-display">13</span>)</h3>
+        <div class="input-box">
+            <label>Adicionar Confronto (R<span id="confronto-r-display">13</span>):</label>
+            <select id="time1-select" style="width: 45%; display: inline-block;"></select>
+            <select id="time2-select" style="width: 45%; display: inline-block;"></select>
+            <button>Adicionar</button>
+        </div>
+        <table id="tmg-table"></table>
+    </section>
+
+    <section>
+        <h3>6. 🔑 Recomendação da Chave Condicionada</h3>
+        <div id="chave-recomendacao"></div>
+    </section>
+
+    <section id="adicionar-rodada-section" style="display: none;">
+        <h3>7. 📝 Inserir Resultados
+</h3></section></div></body></html>
+------MultipartBoundary--yjNEMWOcttHdCgbLyitcM6mI3bTmVuzbNT5n1lCUHb----
+Content-Type: text/css
+Content-Transfer-Encoding: binary
+Content-Location: cid:css-63c3a48b-dbcf-4005-85e6-5c7a4ac1102d@mhtml.blink
+
+@charset "utf-8";
+
+:root { --primary-color: #007bff; --secondary-color: #28a745; --danger-color: #dc3545; }
+
+body { font-family: Arial, sans-serif; background-color: rgb(248, 249, 250); color: rgb(52, 58, 64); margin: 0px; padding: 20px; }
+
+.container { max-width: 1200px; margin: auto; background: rgb(255, 255, 255); padding: 20px; border-radius: 10px; box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 15px; }
+
+h1, h2, h3 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 8px; margin-top: 25px; }
+
+.flex-group { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+
+.input-box { flex: 1 1 300px; background: rgb(233, 236, 239); padding: 15px; border-radius: 8px; }
+
+input[type="text"], input[type="number"], select { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid rgb(206, 212, 218); border-radius: 4px; }
+
+button { padding: 10px 15px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; margin-right: 5px; }
+
+button:hover { background-color: rgb(33, 136, 56); }
+
+.btn-danger { background-color: var(--danger-color); }
+
+.btn-danger:hover { background-color: rgb(200, 35, 51); }
+
+table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+
+th, td { border: 1px solid rgb(222, 226, 230); padding: 10px 5px; text-align: center; }
+
+th { background-color: var(--primary-color); color: white; }
+
+.elegivel { background-color: rgb(212, 237, 218); }
+
+.aposta-ouro { background-color: rgb(255, 193, 7); font-weight: bold; }
+
+#log { margin-top: 20px; padding: 10px; border: 1px solid rgb(0, 86, 179); background-color: rgb(224, 247, 255); color: rgb(0, 64, 133); }
+
+#log.error { border-color: var(--danger-color); background-color: rgb(248, 215, 218); color: rgb(114, 28, 36); }
+
+.team-card { flex: 1 1 250px; min-width: 250px; background: rgb(255, 255, 255); padding: 10px; border: 1px solid rgb(221, 221, 221); border-radius: 8px; box-shadow: rgba(0, 0, 0, 0.05) 0px 2px 5px; }
+
+.team-card h3 { border-bottom: 1px solid rgb(206, 212, 218); color: rgb(52, 58, 64); margin: 0px 0px 10px; padding-bottom: 5px; font-size: 1.1em; }
+
+.rodada-item { background-color: rgb(240, 240, 240); padding: 5px; border-radius: 4px; text-align: center; font-size: 0.8em; cursor: pointer; transition: background-color 0.2s; border: 1px solid rgb(204, 204, 204); }
+
+.rodada-item:hover { background-color: rgb(224, 224, 224); }
+
+.rodada-label { display: block; font-weight: bold; }
+
+.placar-ht { font-size: 0.7em; color: rgb(102, 102, 102); }
+
+.rodada-item.win { background-color: rgb(212, 237, 218); border-color: rgb(195, 230, 203); }
+
+.rodada-item.loss { background-color: rgb(248, 215, 218); border-color: rgb(245, 198, 203); }
+
+.rodada-item.draw { background-color: rgb(255, 243, 205); border-color: rgb(255, 238, 186); }
+
+.analyzed-r { border: 2px solid var(--primary-color); font-weight: bold; box-shadow: rgba(0, 123, 255, 0.4) 0px 0px 3px; }
+
+.hidden-history { display: flex; flex-wrap: wrap; gap: 5px; padding: 5px 0px; margin-bottom: 5px; border-bottom: 1px dashed rgb(221, 221, 221); }
+
+.expand-button { background-color: rgb(240, 240, 240); color: rgb(51, 51, 51); border: 1px solid rgb(204, 204, 204); padding: 5px 10px; font-size: 12px; cursor: pointer; margin-bottom: 5px; width: 100%; transition: background-color 0.2s; }
+
+.expand-button:hover { background-color: rgb(224, 224, 224); }
+
+.fab-button { position: fixed; bottom: 20px; right: 20px; background-color: var(--secondary-color); color: white; border: none; padding: 15px 20px; border-radius: 50px; font-size: 16px; cursor: pointer; box-shadow: rgba(0, 0, 0, 0.4) 0px 4px 6px; z-index: 1000; transition: background-color 0.3s, transform 0.2s; }
+
+.fab-button:hover { background-color: rgb(33, 136, 56); transform: scale(1.05); }
+------MultipartBoundary--yjNEMWOcttHdCgbLyitcM6mI3bTmVuzbNT5n1lCUHb------
