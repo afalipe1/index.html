@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -154,6 +154,871 @@
                     <option value="M2">M2: TMG-Chave O2.5 (GTR 2, TMG ≥ 12)</option>
                     <option value="M3">M3: TMG-Chave HT (HTGTR 3, Over 0.5 HT)</option>
                 </select>
-                <button class="btn-danger" onclick="deleteLiga()" style="margin-top:
+                <button class="btn-danger" onclick="deleteLiga()" style="margin-top: 10px;">Deletar Liga Ativa</button>
+            </div>
+        </div>
+        <p style="margin-top: 10px; font-weight: bold;">Times na Liga: <span id="time-list-display"></span></p>
+    </section>
+
+    <section>
+        <h3>2. 📊 Análise e Exportação</h3>
+        <div class="flex-group">
+            <div style="flex: 1 1 200px;">
+                <label>Rodada de Análise (R):</label>
+                <input type="number" id="rodada-alvo" placeholder="Rodada Alvo (Ex: 13)" value="13" onchange="loadLigas()">
+            </div>
+            <button onclick="calculateAnalysis()" style="flex: 1 1 200px; align-self: flex-end;">CALCULAR CHAVE (R<span id="target-r-display">13</span>)</button>
+        </div>
+        <div class="flex-group" style="border-top: 1px solid #ccc; padding-top: 15px;">
+            <input type="file" id="import-file" accept=".json,.html" style="flex: 1 1 200px; height: 40px;" onchange="importData(event)">
+            <button onclick="exportData()" style="flex: 1 1 150px;">Exportar Dados</button>
+        </div>
+    </section>
+
+    <section>
+        <h3>3. 📊 Histórico de Gols (Clique para Editar o Resultado)</h3>
+        <p>As rodadas destacadas são as últimas <span id="gtr-base-display">3</span> rodadas usadas no GTR atual. Clique no card para editar.</p>
+        <div id="historico-inputs" class="flex-group">
+            </div>
+    </section>
+
+    <section>
+        <h3>4. 📈 Resultados do GTR e Aposta Ouro</h3>
+        <p>Cálculo: <span id="gtr-calc-info"></span></p>
+        <table id="gtr-table"></table>
+    </section>
+
+    <section>
+        <h3>5. 🎯 Análise de Confrontos TMG (R<span id="analysis-r-display">13</span>)</h3>
+        <div class="input-box">
+            <label>Adicionar Confronto (R<span id="confronto-r-display">13</span>):</label>
+            <select id="time1-select" style="width: 45%; display: inline-block;"></select>
+            <select id="time2-select" style="width: 45%; display: inline-block;"></select>
+            <button onclick="addConfronto()">Adicionar</button>
+        </div>
+        <table id="tmg-table"></table>
+    </section>
+
+    <section>
+        <h3>6. 🔑 Recomendação da Chave Condicionada</h3>
+        <div id="chave-recomendacao"></div>
+    </section>
+
+    <section id="adicionar-rodada-section" style="display: none;">
+        <h3>7. 📝 Inserir Resultados de Rodada / Gerenciar Times</h3>
+
+        <div class="flex-group">
+            <div class="input-box">
+                   <label>Adicionar Time à Liga:</label>
+                   <input type="text" id="novo-time-nome" placeholder="Nome do Time (Ex: Bayern)">
+                   <button onclick="addTime()">Adicionar Time</button>
+            </div>
+             <div class="input-box">
+                <label>Rodada para Inserção/Edição:</label>
+                <input type="number" id="rodada-input" placeholder="Rodada (Ex: 12)" min="1">
+            </div>
+        </div>
+
+        <h4>Inserir/Editar Resultado (Preencha os campos e clique em Salvar)</h4>
+        <div class="flex-group">
+            <select id="time1-result-select" style="flex: 1;"></select>
+            <input type="number" id="gm-input" placeholder="GM" style="width: 50px;" min="0">
+            <span>-</span>
+            <input type="number" id="gs-input" placeholder="GS" style="width: 50px;" min="0">
+            <select id="time2-result-select" style="flex: 1;"></select>
+        </div>
+
+        <div class="flex-group" style="margin-top: 10px;">
+            <label>1º Tempo:</label>
+            <input type="number" id="gmht-input" placeholder="GM HT" style="width: 50px;" min="0">
+            <span>-</span>
+            <input type="number" id="gsht-input" placeholder="GS HT" style="width: 50px;" min="0">
+            <button onclick="saveResultFromInputs()" style="flex: 1 1 150px;">Salvar Resultado</button>
+        </div>
+        
+    </section>
+    
+</div>
+<button id="add-result-fab" class="fab-button" onclick="showInputSection()">➕ Inserir Resultados</button>
+
+<script>
+    // --- VARIÁVEIS GLOBAIS ---
+    let db;
+    const DB_NAME = 'TmgChaveDB_v2'; 
+    const DB_VERSION = 2; 
+    const STORE_LIGAS = 'Ligas';
+    const STORE_TIMES = 'Times';
+    const STORE_CONFRONTOS = 'Confrontos';
+
+    let currentLiga = '';
+    let currentMethod = 'M1'; 
+    let apostaOuroTimes = []; 
+
+    const METHODS = {
+        'M1': { name: 'TMG-Chave Otimizado', gtr_base: 3, tmg_min: 12, market: 'O2.5 OU BTTS', chave_rule: 'CHAVE_2_4', type: 'TOTAL' },
+        'M2': { name: 'TMG-Chave O2.5', gtr_base: 2, tmg_min: 12, market: 'O2.5 SIMPLES', chave_rule: 'CHAVE_MULTIPLA', type: 'TOTAL' },
+        'M3': { name: 'TMG-Chave HT Otimizado', gtr_base: 3, tmg_min: 6, market: 'OVER 0.5 HT', chave_rule: 'CHAVE_2_N', type: 'HT' }
+    };
+
+    // --- INDEXEDDB SETUP ---
+
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_LIGAS)) {
+                    db.createObjectStore(STORE_LIGAS, { keyPath: 'nome' });
+                }
+                if (!db.objectStoreNames.contains(STORE_TIMES)) {
+                    const timeStore = db.createObjectStore(STORE_TIMES, { keyPath: 'id', autoIncrement: true });
+                    timeStore.createIndex('liga', 'liga', { unique: false });
+                }
+                if (!db.objectStoreNames.contains(STORE_CONFRONTOS)) {
+                    const confrontoStore = db.createObjectStore(STORE_CONFRONTOS, { keyPath: 'id', autoIncrement: true });
+                    confrontoStore.createIndex('liga_rodada', ['liga', 'rodada'], { unique: false });
+                }
+            };
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                document.getElementById('log').textContent = 'Banco de Dados IndexedDB TMG 2.0 inicializado.';
+                resolve(db);
+                loadLigas();
+            };
+
+            request.onerror = (event) => {
+                document.getElementById('log').textContent = `Erro ao abrir DB: ${event.target.errorCode}`;
+                document.getElementById('log').classList.add('error');
+                reject(event.target.error);
+            };
+        });
+    }
+
+    function transaction(storeName, mode) {
+        const tx = db.transaction(storeName, mode);
+        return tx.objectStore(storeName);
+    }
+    
+    // NOVO UTILITY: Função para expandir/recolher o histórico
+    function toggleHistory(timeId) {
+        const hiddenDiv = document.getElementById(`hidden-r-${timeId}`);
+        const expandBtn = document.getElementById(`expand-btn-${timeId}`);
+
+        if (!hiddenDiv || !expandBtn) return; 
+
+        if (hiddenDiv.style.display === 'none') {
+            hiddenDiv.style.display = 'flex'; // Mostra
+            expandBtn.textContent = 'Ocultar Histórico Anterior';
+        } else {
+            hiddenDiv.style.display = 'none'; // Esconde
+            const rodadasOcultasCount = hiddenDiv.children.length;
+            expandBtn.textContent = `Mostrar ${rodadasOcultasCount} Rodadas Anteriores`;
+        }
+    }
+
+    // NOVO UTILITY: Função para rolar e focar na seção de inserção de dados (Chamada pelo FAB)
+    function showInputSection() {
+        const inputSection = document.getElementById('adicionar-rodada-section');
+        inputSection.style.display = 'block'; // Garante que a seção de input esteja visível
+        inputSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // --- LIGA MANAGEMENT ---
+
+    async function loadLigas() {
+        const select = document.getElementById('liga-select');
+        select.innerHTML = '';
+        const store = transaction(STORE_LIGAS, 'readonly');
+        const ligas = await getAllData(store);
+        
+        if (ligas.length === 0) {
+            document.getElementById('log').textContent = 'Nenhuma liga encontrada. Adicione uma nova liga.';
+            currentLiga = '';
+            renderTimeList([]);
+            return;
+        }
+
+        ligas.forEach(liga => {
+            select.innerHTML += `<option value="${liga.nome}">${liga.nome}</option>`;
+        });
+
+        currentLiga = select.value;
+        switchLiga();
+    }
+
+    async function addLiga() {
+        const nome = document.getElementById('nova-liga-nome').value.trim();
+        if (!nome) return;
+
+        const store = transaction(STORE_LIGAS, 'readwrite');
+        try {
+            await putData(store, { nome });
+            document.getElementById('nova-liga-nome').value = '';
+            await loadLigas();
+            document.getElementById('liga-select').value = nome;
+            switchLiga();
+        } catch (e) {
+            document.getElementById('log').textContent = `Erro ao adicionar liga: ${e.message}`;
+            document.getElementById('log').classList.add('error');
+        }
+    }
+
+    async function deleteLiga() {
+        if (!currentLiga || !confirm(`Tem certeza que deseja DELETAR a liga "${currentLiga}" e todos os seus dados de times e histórico?`)) return;
+
+        // 1. Delete LIGA entry
+        await deleteData(transaction(STORE_LIGAS, 'readwrite'), currentLiga);
+
+        // 2. Delete all TIMES associated with the league
+        const timeStore = transaction(STORE_TIMES, 'readwrite');
+        const times = await getTimesByLiga(currentLiga);
+        for (const time of times) {
+            await deleteData(timeStore, time.id);
+        }
+        
+        // 3. Delete all CONFRONTOS associated with the league
+        const confrontoStore = transaction(STORE_CONFRONTOS, 'readwrite');
+        const confrontos = await getConfrontosByLiga(currentLiga);
+        for (const confronto of confrontos) {
+            await deleteData(confrontoStore, confronto.id);
+        }
+
+        currentLiga = '';
+        await loadLigas();
+        document.getElementById('log').textContent = `Liga "${currentLiga}" deletada.`;
+    }
+
+    function switchLiga() {
+        currentLiga = document.getElementById('liga-select').value;
+        if (currentLiga) {
+            loadTimesAndRender();
+        }
+    }
+
+    // --- TIME MANAGEMENT ---
+
+    async function loadTimesAndRender() {
+        const times = await getTimesByLiga(currentLiga);
+        renderTimeList(times);
+        renderHistoricoInputs(times); // RENDERIZA OS CARDS
+        renderConfrontoSelects(times);
+        loadConfrontos();
+        calculateAnalysis();
+    }
+
+    function renderTimeList(times) {
+        document.getElementById('time-list-display').textContent = times.map(t => t.nome).join(', ');
+    }
+
+    async function addTime() {
+        const nome = document.getElementById('novo-time-nome').value.trim();
+        if (!nome || !currentLiga) return;
+
+        const timeStore = transaction(STORE_TIMES, 'readwrite');
+        try {
+            await putData(timeStore, { liga: currentLiga, nome, historico: {} }); 
+            document.getElementById('novo-time-nome').value = '';
+            loadTimesAndRender();
+        } catch (e) {
+            document.getElementById('log').textContent = `Erro ao adicionar time: ${e.message}`;
+            document.getElementById('log').classList.add('error');
+        }
+    }
+
+    // --- NOVO RENDER DO HISTÓRICO (SEÇÃO 3) E INPUTS (SEÇÃO 7) ---
+
+    // Função de wrapper que substitui o antigo renderHistoricoInputs
+    function renderHistoricoInputs(times) {
+        // Renderiza os cards de times (Seção 3)
+        renderTimeCards(times);
+        // Renderiza os selects para a Seção 7 (Inserir Resultados)
+        renderResultInputSelects(times);
+        // Atualiza display da GTR Base
+        document.getElementById('gtr-base-display').textContent = METHODS[currentMethod].gtr_base;
+    }
+    
+    // Cria e insere os cards de times na Seção 3
+    function renderTimeCards(times) {
+        const container = document.getElementById('historico-inputs'); 
+        if (!container) return; 
+        
+        container.innerHTML = '';
+        if (times.length === 0) return;
+
+        const rodadaAlvo = parseInt(document.getElementById('rodada-alvo').value);
+
+        times.forEach(time => {
+            const card = createTeamCard(time, rodadaAlvo);
+            container.appendChild(card);
+        });
+        
+        document.getElementById('target-r-display').textContent = rodadaAlvo;
+        document.getElementById('confronto-r-display').textContent = rodadaAlvo;
+        document.getElementById('analysis-r-display').textContent = rodadaAlvo;
+    }
+
+    // Cria o card de um time específico com seu histórico (agora expansível).
+    function createTeamCard(time, rodadaAlvo) {
+        const teamCard = document.createElement('div');
+        teamCard.className = 'input-box team-card'; 
+        teamCard.setAttribute('data-time-id', time.id);
+        teamCard.innerHTML = `<h3>${time.nome}</h3>`;
+
+        const historicoDiv = document.createElement('div');
+        historicoDiv.className = 'historico-gols';
+
+        const maxRodada = rodadaAlvo - 1;
+        const rodadas = Object.keys(time.historico).map(Number).sort((a, b) => a - b).filter(r => r <= maxRodada);
+        
+        const gtrBase = METHODS[currentMethod].gtr_base;
+        const rodadasVisiveis = gtrBase; 
+        const rodadasParaExibir = rodadas.slice(-rodadasVisiveis);
+        const rodadasOcultas = rodadas.slice(0, rodadas.length - rodadasVisiveis);
+
+        let htmlHistorico = '';
+
+        // 1. ADICIONAR AS RODADAS OCULTAS (Se houver)
+        if (rodadasOcultas.length > 0) {
+            htmlHistorico += `
+                <div class="hidden-history" id="hidden-r-${time.id}" style="display: none;">
+            `;
+            rodadasOcultas.forEach(r => {
+                const data = time.historico[r] || { gm: 0, gs: 0, gmht: 0, gsht: 0 };
+                const resultStyle = data.gm > data.gs ? 'win' : data.gm < data.gs ? 'loss' : 'draw';
+                htmlHistorico += `
+                    <div class="rodada-item ${resultStyle}" data-rodada="${r}" onclick="editResult(${time.id}, ${r}, '${time.liga}')">
+                        <span class="rodada-label">R${r}</span>
+                        <span class="placar-total">${data.gm} - ${data.gs}</span>
+                        <span class="placar-ht" title="Placar 1º Tempo">(HT: ${data.gmht || 0} - ${data.gsht || 0})</span>
+                    </div>
+                `;
+            });
+             htmlHistorico += `</div>`; 
+        }
+
+        // 2. ADICIONAR BOTÃO DE EXPANDIR (Se houver rodadas ocultas)
+        if (rodadasOcultas.length > 0) {
+             htmlHistorico += `
+                 <button class="expand-button" id="expand-btn-${time.id}" onclick="toggleHistory(${time.id})">
+                     Mostrar ${rodadasOcultas.length} Rodadas Anteriores
+                 </button>
+             `;
+        }
+
+        // 3. ADICIONAR AS RODADAS RELEVANTES (Últimas N do GTR)
+        htmlHistorico += `<div class="flex-group" style="gap: 5px; margin-top: 10px;">`
+        rodadasParaExibir.forEach(r => {
+            const data = time.historico[r] || { gm: 0, gs: 0, gmht: 0, gsht: 0 };
+            const resultStyle = data.gm > data.gs ? 'win' : data.gm < data.gs ? 'loss' : 'draw';
+            const analyzedClass = ' analyzed-r'; 
+
+            htmlHistorico += `
+                <div class="rodada-item ${resultStyle}${analyzedClass}" data-rodada="${r}" onclick="editResult(${time.id}, ${r}, '${time.liga}')" style="flex: 1; min-width: 80px;">
+                    <span class="rodada-label">R${r}</span>
+                    <span class="placar-total">${data.gm} - ${data.gs}</span>
+                    <span class="placar-ht" title="Placar 1º Tempo">(HT: ${data.gmht} - ${data.gsht})</span>
+                </div>
+            `;
+        });
+        htmlHistorico += `</div>`
+        
+        historicoDiv.innerHTML = htmlHistorico;
+        teamCard.appendChild(historicoDiv);
+        return teamCard;
+    }
+
+    // Preenche a seção 7 com os dados de um resultado clicado (usado pelo onclick do card)
+    async function editResult(timeId, rodada, liga) {
+        showInputSection(); 
+        
+        const timeStore = transaction(STORE_TIMES, 'readonly');
+        const time = await getData(timeStore, timeId);
+        
+        if (!time) return;
+
+        const todosTimes = await getTimesByLiga(liga);
+        const data = time.historico[rodada] || {};
+
+        document.getElementById('rodada-input').value = rodada;
+        document.getElementById('gm-input').value = data.gm !== undefined ? data.gm : '';
+        document.getElementById('gs-input').value = data.gs !== undefined ? data.gs : '';
+        document.getElementById('gmht-input').value = data.gmht !== undefined ? data.gmht : '';
+        document.getElementById('gsht-input').value = data.gsht !== undefined ? data.gsht : '';
+        
+        renderResultInputSelects(todosTimes, timeId, 0); 
+
+        document.getElementById('log').textContent = `Pronto para editar R${rodada} de ${time.nome}. Se for inserir um novo jogo, preencha o Adversário.`;
+    }
+
+    // Preenche os selects da seção 7 (Inserir Resultados)
+    function renderResultInputSelects(times, selectedTimeId1 = 0, selectedTimeId2 = 0) {
+        const select1 = document.getElementById('time1-result-select');
+        const select2 = document.getElementById('time2-result-select');
+        select1.innerHTML = '<option value="">-- Time 1 --</option>';
+        select2.innerHTML = '<option value="0">-- Adversário (Opcional) --</option>';
+
+        times.forEach(time => {
+            const isSelected1 = time.id === selectedTimeId1 ? 'selected' : '';
+            const isSelected2 = time.id === selectedTimeId2 ? 'selected' : '';
+            
+            select1.innerHTML += `<option value="${time.id}" ${isSelected1}>${time.nome}</option>`;
+            select2.innerHTML += `<option value="${time.id}" ${isSelected2}>${time.nome}</option>`;
+        });
+    }
+
+    // Salva o resultado da seção 7
+    async function saveResultFromInputs() {
+        const timeId1 = parseInt(document.getElementById('time1-result-select').value);
+        const timeId2 = parseInt(document.getElementById('time2-result-select').value) || 0;
+        const rodada = parseInt(document.getElementById('rodada-input').value);
+
+        const gm = parseInt(document.getElementById('gm-input').value) || 0;
+        const gs = parseInt(document.getElementById('gs-input').value) || 0;
+        const gmht = parseInt(document.getElementById('gmht-input').value) || 0;
+        const gsht = parseInt(document.getElementById('gsht-input').value) || 0;
+
+        if (!timeId1 || !rodada) {
+            document.getElementById('log').textContent = 'Erro: Selecione um Time e insira a Rodada.';
+            document.getElementById('log').classList.add('error');
+            return;
+        }
+
+        const timeStore = transaction(STORE_TIMES, 'readwrite');
+        const time1 = await getData(timeStore, timeId1);
+        
+        if (!time1.historico[rodada]) {
+            time1.historico[rodada] = {};
+        }
+
+        // Salva os dados para o Time 1 (GM = gols marcados, GS = gols sofridos)
+        time1.historico[rodada].gm = gm;
+        time1.historico[rodada].gs = gs;
+        time1.historico[rodada].gmht = gmht;
+        time1.historico[rodada].gsht = gsht;
+
+        await putData(timeStore, time1);
+
+        // Se o time 2 foi selecionado (Adversário) - Salva o inverso para ele
+        if (timeId2 && timeId2 !== 0 && timeId2 !== timeId1) {
+             const time2 = await getData(timeStore, timeId2);
+             if (!time2.historico[rodada]) {
+                 time2.historico[rodada] = {};
+             }
+             // Time 2: GM = gols sofridos do Time 1, GS = gols marcados do Time 1
+             time2.historico[rodada].gm = gs;
+             time2.historico[rodada].gs = gm;
+             time2.historico[rodada].gmht = gsht;
+             time2.historico[rodada].gsht = gmht;
+             await putData(timeStore, time2);
+             document.getElementById('log').textContent = `Resultado R${rodada} de ${time1.nome} vs ${time2.nome} salvo!`;
+        } else {
+             document.getElementById('log').textContent = `Resultado R${rodada} de ${time1.nome} salvo! (Apenas um time atualizado)`;
+        }
+
+        loadTimesAndRender(); 
+    }
+
+    // --- CONFRONTO MANAGEMENT ---
+
+    function renderConfrontoSelects(times) {
+        const select1 = document.getElementById('time1-select');
+        const select2 = document.getElementById('time2-select');
+        select1.innerHTML = '<option value="">-- Time 1 --</option>';
+        select2.innerHTML = '<option value="">-- Time 2 --</option>';
+
+        times.forEach(time => {
+            select1.innerHTML += `<option value="${time.nome}">${time.nome}</option>`;
+            select2.innerHTML += `<option value="${time.nome}">${time.nome}</option>`;
+        });
+    }
+
+    async function addConfronto() {
+        const time1 = document.getElementById('time1-select').value;
+        const time2 = document.getElementById('time2-select').value;
+        const rodada = parseInt(document.getElementById('rodada-alvo').value);
+
+        if (!time1 || !time2 || time1 === time2 || !rodada) return;
+
+        const confrontoStore = transaction(STORE_CONFRONTOS, 'readwrite');
+        
+        const allConfrontos = await getConfrontosByLiga(currentLiga);
+        const isDuplicate = allConfrontos.some(c => 
+            c.rodada === rodada && 
+            ((c.time1 === time1 && c.time2 === time2) || (c.time1 === time2 && c.time2 === time1))
+        );
+
+        if (isDuplicate) {
+             document.getElementById('log').textContent = 'Erro: Confronto já adicionado para esta rodada.';
+             document.getElementById('log').classList.add('error');
+             return;
+        }
+
+        try {
+            await putData(confrontoStore, { liga: currentLiga, rodada, time1, time2 });
+            document.getElementById('log').textContent = `Confronto ${time1} vs ${time2} (R${rodada}) adicionado.`;
+            calculateAnalysis(); 
+        } catch (e) {
+            document.getElementById('log').textContent = `Erro ao adicionar confronto: ${e.message}`;
+            document.getElementById('log').classList.add('error');
+        }
+    }
+
+    async function loadConfrontos() {
+        // Nada a fazer aqui, pois o cálculo de análise faz isso
+    }
+    
+    // --- UTILITY DB FUNCTIONS ---
+
+    function getAllData(store) {
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    function getData(store, key) {
+        return new Promise((resolve, reject) => {
+            const request = store.get(key);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    function putData(store, data) {
+        return new Promise((resolve, reject) => {
+            const request = store.put(data);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    function deleteData(store, key) {
+        return new Promise((resolve, reject) => {
+            const request = store.delete(key);
+            request.onsuccess = () => resolve();
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    async function getTimesByLiga(ligaNome) {
+        const timeStore = transaction(STORE_TIMES, 'readonly');
+        const index = timeStore.index('liga');
+        const request = index.getAll(ligaNome);
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    async function getConfrontosByLiga(ligaNome) {
+        const confrontoStore = transaction(STORE_CONFRONTOS, 'readonly');
+        const allConfrontos = await getAllData(confrontoStore);
+        return allConfrontos.filter(c => c.liga === ligaNome);
+    }
+
+    async function getConfrontosByLigaAndRodada(ligaNome, rodada) {
+        const confrontoStore = transaction(STORE_CONFRONTOS, 'readonly');
+        const allConfrontos = await getAllData(confrontoStore);
+        return allConfrontos.filter(c => c.liga === ligaNome && c.rodada === rodada);
+    }
+    
+    // --- IMPORT/EXPORT FUNCTIONS (NOVAS E ATUALIZADAS) ---
+
+    /**
+     * Zera o Object Store e insere novos dados. Usado para importação de backup.
+     */
+    function overwriteStore(storeName, dataArray) {
+        return new Promise(async (resolve, reject) => {
+            if (!dataArray || dataArray.length === 0) {
+                resolve();
+                return;
+            }
+            
+            const tx = db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
+
+            try {
+                // 1. Limpar (apagar todos os dados existentes)
+                await new Promise((res, rej) => {
+                    const clearRequest = store.clear();
+                    clearRequest.onsuccess = res;
+                    clearRequest.onerror = rej;
+                });
+
+                // 2. Inserir os novos dados do array
+                for (const item of dataArray) {
+                    // Usamos put para garantir que os itens sejam inseridos/atualizados com as chaves existentes no backup.
+                    await putData(store, item);
+                }
+
+                tx.oncomplete = resolve;
+                tx.onerror = (e) => reject(e.target.error);
+
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    /**
+     * Analisa o conteúdo HTML da tabela e retorna um array de objetos.
+     * Assume a estrutura de 5 colunas: Rodada, TimeCasa, GM, GS, TimeFora
+     */
+    function parseHtmlTable(htmlContent) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+        // Usamos uma suposição para a tabela, você pode ajustar o seletor.
+        // O ideal é que a tabela no HTML tenha um ID específico, mas buscaremos a primeira tabela.
+        const table = doc.querySelector('table'); 
+        
+        if (!table) return null;
+
+        const results = [];
+        // Busca linhas que não sejam o cabeçalho
+        const rows = table.querySelectorAll('tr:not(:first-child)');
+        
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            // Estrutura esperada: Rodada, TimeCasa, GM, GS, TimeFora
+            if (cells.length >= 5) {
+                // Tenta extrair valores das células
+                const rodadaText = cells[0].textContent.trim();
+                const rodadaMatch = rodadaText.match(/(\d+)/); // Pega apenas o número da rodada
+                const rodada = rodadaMatch ? parseInt(rodadaMatch[1]) : NaN;
+
+                if (isNaN(rodada)) return; // Ignora se a rodada não for um número
+
+                results.push({
+                    Rodada: rodada,
+                    TimeCasa: cells[1].textContent.trim(),
+                    GM: parseInt(cells[2].textContent.trim()) || 0,
+                    GS: parseInt(cells[3].textContent.trim()) || 0,
+                    TimeFora: cells[4].textContent.trim()
+                });
+            }
+        });
+        return results.filter(r => r.TimeCasa && r.TimeFora); // Filtra resultados incompletos
+    }
+
+    /**
+     * Processa a importação de resultados da tabela HTML para a liga ativa.
+     * Cria times se não existirem e salva os resultados no histórico.
+     */
+    async function processHtmlImport(gameResults) {
+        if (!currentLiga) {
+            throw new Error("Selecione uma liga ativa antes de importar dados HTML.");
+        }
+
+        const timeStore = transaction(STORE_TIMES, 'readwrite');
+        const allTimes = await getTimesByLiga(currentLiga);
+        const timeMap = {}; 
+
+        allTimes.forEach(t => timeMap[t.nome] = t);
+
+        let timesAdicionados = 0;
+        let resultadosSalvos = 0;
+
+        for (const result of gameResults) {
+            const rodadaNum = result.Rodada;
+
+            // Garante que os times existam (Time Casa e Time Fora)
+            const teamNames = [result.TimeCasa, result.TimeFora];
+            for (const name of teamNames) {
+                if (!timeMap[name]) {
+                    const newTime = { liga: currentLiga, nome: name, historico: {} };
+                    const newId = await new Promise((resolve, reject) => {
+                        const request = timeStore.add(newTime);
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = (e) => reject(e.target.error);
+                    });
+                    newTime.id = newId;
+                    timeMap[name] = newTime;
+                    timesAdicionados++;
+                }
+            }
+            
+            // Atualiza Histórico
+            const time1 = timeMap[result.TimeCasa];
+            const time2 = timeMap[result.TimeFora];
+            
+            // Time Casa (Time 1)
+            if (!time1.historico[rodadaNum]) time1.historico[rodadaNum] = {};
+            time1.historico[rodadaNum].gm = result.GM;
+            time1.historico[rodadaNum].gs = result.GS;
+            time1.historico[rodadaNum].gmht = 0; // O HTML não fornece, então Zera.
+            time1.historico[rodadaNum].gsht = 0; // O HTML não fornece, então Zera.
+            await putData(timeStore, time1);
+
+            // Time Fora (Time 2) - Inversão de Gols
+            if (!time2.historico[rodadaNum]) time2.historico[rodadaNum] = {};
+            time2.historico[rodadaNum].gm = result.GS;
+            time2.historico[rodadaNum].gs = result.GM;
+            time2.historico[rodadaNum].gmht = 0; // O HTML não fornece, então Zera.
+            time2.historico[rodadaNum].gsht = 0; // O HTML não fornece, então Zera.
+            await putData(timeStore, time2);
+
+            resultadosSalvos++;
+        }
+        return { totalResults: gameResults.length, timesCreated: timesAdicionados, resultsSaved: resultadosSalvos };
+    }
 
 
+    async function exportData() {
+        const ligas = await getAllData(transaction(STORE_LIGAS, 'readonly'));
+        const times = await getAllData(transaction(STORE_TIMES, 'readonly'));
+        const confrontos = await getAllData(transaction(STORE_CONFRONTOS, 'readonly'));
+
+        const data = {
+            metadata: "TMG 2.0 Export",
+            timestamp: new Date().toISOString(),
+            ligas,
+            times,
+            confrontos
+        };
+
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tmg_export_${new Date().getTime()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        document.getElementById('log').textContent = 'Dados exportados com sucesso.';
+    }
+
+    /**
+     * Função importData ATUALIZADA para aceitar JSON (Backup Completo) OU HTML (Tabela de Resultados)
+     */
+    async function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        document.getElementById('log').textContent = `Iniciando importação do arquivo: ${file.name}`;
+        document.getElementById('log').classList.remove('error');
+
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            const content = e.target.result;
+
+            try {
+                if (file.name.endsWith('.json')) {
+                    // --- LÓGICA DE IMPORTAÇÃO JSON (BACKUP) ---
+                    const data = JSON.parse(content);
+
+                    if (!data.metadata || data.metadata !== "TMG 2.0 Export") {
+                        throw new Error('Arquivo JSON inválido ou não é um arquivo TMG 2.0 Export.');
+                    }
+
+                    if (!confirm("Tem certeza que deseja importar dados? Isso IRÁ SOBRESCREVER TODOS os dados existentes (Ligas, Times, Confrontos).")) {
+                        document.getElementById('import-file').value = ''; 
+                        return;
+                    }
+                    
+                    // Sobrescrever dados no IndexedDB
+                    await overwriteStore(STORE_LIGAS, data.ligas);
+                    await overwriteStore(STORE_TIMES, data.times);
+                    await overwriteStore(STORE_CONFRONTOS, data.confrontos);
+                    
+                    document.getElementById('log').textContent = `Importação JSON COMPLETA (${data.ligas.length} ligas) concluída!`;
+
+                } else if (file.name.endsWith('.html')) {
+                    // --- LÓGICA DE IMPORTAÇÃO HTML (RESULTADOS) ---
+                    if (!currentLiga) {
+                         throw new Error("Erro: Selecione uma Liga Ativa antes de importar resultados HTML.");
+                    }
+
+                    const gameResults = parseHtmlTable(content);
+                    
+                    if (gameResults && gameResults.length > 0) {
+                        const summary = await processHtmlImport(gameResults);
+                        document.getElementById('log').textContent = `Importação HTML: ${summary.resultsSaved} resultados salvos para a liga "${currentLiga}". (${summary.timesCreated} times novos criados)`;
+                    } else {
+                        throw new Error('Nenhum resultado válido encontrado no arquivo HTML. Verifique a estrutura da tabela.');
+                    }
+                } else {
+                    throw new Error('Formato de arquivo não suportado. Use .json (backup) ou .html (resultados).');
+                }
+
+                // Ações finais
+                document.getElementById('import-file').value = '';
+                await loadLigas(); 
+
+            } catch (error) {
+                document.getElementById('log').textContent = `Erro durante o processamento do arquivo: ${error.message}`;
+                document.getElementById('log').classList.add('error');
+            }
+        };
+
+        reader.readAsText(file);
+    }
+    
+    // --- CÁLCULO DE ANÁLISE (Mantido como estava, mas é necessário para o app funcionar) ---
+
+    // A função calculateAnalysis e as funções de cálculo GTR/TMG (setMethod, calculateGTR, calculateTMG, etc.) 
+    // não foram incluídas no código que você enviou, mas são cruciais para o funcionamento. 
+    // Assumindo que você as tenha em seu código completo, elas precisam estar aqui.
+    // Se você não as enviou, o app não funcionará, mas a lógica de importação está correta.
+
+    // Apenas para que o código compile, adicionarei um stub (função vazia) para `calculateAnalysis` e `setMethod`.
+    // VOCÊ DEVE SUBSTITUÍ-LAS PELAS SUAS FUNÇÕES DE CÁLCULO REAIS.
+
+    function setMethod() {
+        currentMethod = document.getElementById('metodo-select').value;
+        loadTimesAndRender(); // Redesenha com o novo GTR Base
+    }
+
+    async function calculateAnalysis() {
+        document.getElementById('log').textContent = `Calculando análise... (Substitua esta função pela sua lógica real)`;
+        // SEU CÓDIGO REAL DE CÁLCULO GTR, TMG E RECOMENDAÇÃO DE CHAVE DEVE IR AQUI.
+        // O código deve:
+        // 1. Chamar loadTimesAndRender() para obter os dados mais recentes.
+        // 2. Chamar getTimesByLiga(currentLiga) para obter os times.
+        // 3. Chamar getConfrontosByLigaAndRodada(currentLiga, rodada) para os jogos.
+        // 4. Calcular GTR e TMG para todos os times.
+        // 5. Renderizar a tabela GTR (Seção 4).
+        // 6. Calcular e renderizar a Tabela TMG de confrontos (Seção 5).
+        // 7. Aplicar a regra da chave (M1, M2 ou M3) e renderizar a recomendação (Seção 6).
+        
+        const rodadaAlvo = document.getElementById('rodada-alvo').value;
+        const times = await getTimesByLiga(currentLiga);
+        const confrontos = await getConfrontosByLigaAndRodada(currentLiga, parseInt(rodadaAlvo));
+
+        // Stub de renderização para mostrar confrontos:
+        const tmgTable = document.getElementById('tmg-table');
+        tmgTable.innerHTML = `
+            <tr>
+                <th>Confronto (R${rodadaAlvo})</th>
+                <th>TMG (T1)</th>
+                <th>TMG (T2)</th>
+                <th>Soma TMG</th>
+                <th>Regra da Chave Aplicada</th>
+            </tr>
+        `;
+        if (confrontos.length === 0) {
+            tmgTable.innerHTML += `<tr><td colspan="5">Nenhum confronto adicionado para a Rodada ${rodadaAlvo}.</td></tr>`;
+        } else {
+             confrontos.forEach(c => {
+                 tmgTable.innerHTML += `<tr><td>${c.time1} vs ${c.time2}</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>`;
+             });
+        }
+    }
+
+
+    // --- INICIALIZAÇÃO ---
+
+    document.addEventListener('DOMContentLoaded', () => {
+        openDB();
+    });
+
+</script>
+
+</body>
+</html>
