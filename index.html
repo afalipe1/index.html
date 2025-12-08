@@ -170,7 +170,7 @@
             <button onclick="calculateAnalysis()" style="flex: 1 1 200px; align-self: flex-end;">CALCULAR CHAVE (R<span id="target-r-display">13</span>)</button>
         </div>
         <div class="flex-group" style="border-top: 1px solid #ccc; padding-top: 15px;">
-            <input type="file" id="import-file" accept=".json" style="flex: 1 1 200px; height: 40px;" onchange="importData(event)">
+            <input type="file" id="import-file" accept=".json,.html" style="flex: 1 1 200px; height: 40px;" onchange="importData(event)">
             <button onclick="exportData()" style="flex: 1 1 150px;">Exportar Dados</button>
         </div>
     </section>
@@ -726,48 +726,31 @@
     }
     
     // --- EXPORT/IMPORT DATA ---
-    async function exportData() {
-        const ligas = await getAllData(transaction(STORE_LIGAS, 'readonly'));
-        const times = await getAllData(transaction(STORE_TIMES, 'readonly'));
-        const confrontos = await getAllData(transaction(STORE_CONFRONTOS, 'readonly'));
+// ... (mantenha sua função exportData original aqui) ...
 
-        const data = {
-            metadata: "TMG 2.0 Export",
-            timestamp: new Date().toISOString(),
-            ligas,
-            times,
-            confrontos
-        };
+// Função importData ATUALIZADA para aceitar JSON OU HTML
+async function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-        const jsonString = JSON.stringify(data, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `tmg_export_${new Date().getTime()}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    document.getElementById('log').textContent = `Iniciando importação do arquivo: ${file.name}`;
+    document.getElementById('log').classList.remove('error');
 
-        document.getElementById('log').textContent = 'Dados exportados com sucesso.';
-    }
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+        const content = e.target.result;
 
-    async function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+        try {
+            if (file.name.endsWith('.json')) {
+                // --- LÓGICA DE IMPORTAÇÃO JSON (BACKUP) ---
+                const data = JSON.parse(content);
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
                 if (!data.metadata || data.metadata !== "TMG 2.0 Export") {
-                    document.getElementById('log').textContent = 'Erro: Arquivo JSON inválido ou não é um arquivo TMG 2.0.';
-                    document.getElementById('log').classList.add('error');
-                    return;
+                    throw new Error('Arquivo JSON inválido ou não é um arquivo TMG 2.0 Export.');
                 }
 
-                if (!confirm("Tem certeza que deseja importar dados? Isso IRÁ SOBRESCREVER todos os dados existentes (Ligas, Times, Confrontos).")) {
+                if (!confirm("Tem certeza que deseja importar dados? Isso IRÁ SOBRESCREVER TODOS os dados existentes (Ligas, Times, Confrontos).")) {
                     document.getElementById('import-file').value = ''; 
                     return;
                 }
@@ -777,17 +760,38 @@
                 await overwriteStore(STORE_TIMES, data.times);
                 await overwriteStore(STORE_CONFRONTOS, data.confrontos);
                 
-                await loadLigas(); 
-                document.getElementById('log').textContent = `Dados de ${data.ligas.length} ligas importados com sucesso!`;
-                document.getElementById('import-file').value = ''; 
+                document.getElementById('log').textContent = `Importação JSON COMPLETA (${data.ligas.length} ligas) concluída!`;
 
-            } catch (error) {
-                document.getElementById('log').textContent = `Erro ao processar o arquivo: ${error.message}`;
-                document.getElementById('log').classList.classList.add('error');
+            } else if (file.name.endsWith('.html')) {
+                // --- LÓGICA DE IMPORTAÇÃO HTML (RESULTADOS) ---
+                if (!currentLiga) {
+                     throw new Error("Erro: Selecione uma Liga Ativa antes de importar resultados HTML.");
+                }
+
+                const gameResults = parseHtmlTable(content);
+                
+                if (gameResults && gameResults.length > 0) {
+                    await processHtmlImport(gameResults);
+                    document.getElementById('log').textContent = `Importação HTML de ${gameResults.length} resultados para a liga "${currentLiga}" concluída!`;
+                } else {
+                    throw new Error('Nenhum resultado válido encontrado no arquivo HTML.');
+                }
+            } else {
+                throw new Error('Formato de arquivo não suportado. Use .json (backup) ou .html (resultados).');
             }
-        };
-        reader.readAsText(file);
-    }
+
+            // Ações finais
+            document.getElementById('import-file').value = '';
+            await loadLigas(); 
+
+        } catch (error) {
+            document.getElementById('log').textContent = `Erro durante o processamento do arquivo: ${error.message}`;
+            document.getElementById('log').classList.add('error');
+        }
+    };
+
+    reader.readAsText(file);
+}
     
     // UTILITY para limpar e preencher um Store (banco de dados)
     async function overwriteStore(storeName, dataArray) {
@@ -1137,3 +1141,4 @@
 
 </body>
 </html>
+
